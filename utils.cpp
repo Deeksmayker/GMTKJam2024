@@ -49,8 +49,13 @@ char* to_string(int num){
     return text;
 }
 
-char* to_string(float num){
+char* to_string(f32 num){
     char* text = (char*)malloc(10 * sizeof(char));
+    sprintf(text, "%f", num);
+    return text;
+}
+char* to_string(f64 num){
+    char* text = (char*)malloc(30 * sizeof(char));
     sprintf(text, "%f", num);
     return text;
 }

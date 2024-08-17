@@ -27,73 +27,76 @@ typedef u32 b32;
 typedef float  f32;
 typedef double f64;
 
-#include "render.cpp"
-#include "my_math.cpp"
 #include "utils.cpp"
+#include "my_math.cpp"
+#include "render.cpp"
+
+
+int screen_width = 1600;
+int screen_height = 900;
+
+#define UNIT_SIZE (screen_width / 150.0f)
 
 #include "game.cpp"
-
 int main(){
-    InitWindow(800, 600, "aboba");
+    InitWindow(screen_width, screen_height, "aboba");
 
-    Shader shader = LoadShader(0, "lerp_shader.fs");
+    // Shader shader = LoadShader(0, "lerp_shader.fs");
     
-    Shader color_shader = LoadShader(0, "color_shader.fs");
+    // Shader color_shader = LoadShader(0, "color_shader.fs");
 
-    Texture bear = LoadTexture("resources/cat.png");
-    Texture2D *swordAnim = (Texture2D*)malloc(10 * sizeof(Texture2D));
+    // Texture bear = LoadTexture("resources/cat.png");
+    // Texture2D *swordAnim = (Texture2D*)malloc(10 * sizeof(Texture2D));
     
-    char swordName[30];
-    strcpy_s(swordName, "resources/3D animations00");
+    // char swordName[30];
+    // strcpy_s(swordName, "resources/3D animations00");
     
-    for (int i = 1; i <= 10; i++){
-        char coolName[50];
-        strcpy_s(coolName, swordName);
-        if (i < 10){
-            strcat_s(coolName, "0");
-        }
-        strcat_s(coolName, to_string(i));
-        strcat_s(coolName, ".png");
-        swordAnim[i-1] = LoadTexture(coolName);
-    }
-    float timer = 0.0f;
-    
-    int texture1Loc = GetShaderLocation(shader, "texture1");
-    int interpLoc = GetShaderLocation(shader, "interp");
-    
-    int alpha_loc = GetShaderLocation(color_shader, "alpha");
-    
-    Array<Vector2> line_points = Array<Vector2>(3);
-    
-    // for (int i = 0; i < line_points.count; i++){
-    //     Vector2 new_point = {(float)i * 10, 200 * sqrtf((float)i)};
-    //     array_add(&line_points, &new_point);
+    // for (int i = 1; i <= 10; i++){
+    //     char coolName[50];
+    //     strcpy_s(coolName, swordName);
+    //     if (i < 10){
+    //         strcat_s(coolName, "0");
+    //     }
+    //     strcat_s(coolName, to_string(i));
+    //     strcat_s(coolName, ".png");
+    //     swordAnim[i-1] = LoadTexture(coolName);
     // }
+    // float timer = 0.0f;
     
-    Vector2 first_point = {50, 50};
-    Vector2 second_point = {250, 150};
-    Vector2 third_point = {550, 150};
-    line_points.add({50, 50});
-    line_points.add({250, 150});
-    line_points.add({550, 150});
+    // int texture1Loc = get_shader_location(shader, "texture1");
+    // int interpLoc = get_shader_location(shader, "interp");
     
-    Image imBlue = GenImageColor(800, 450, (Color){ 0, 0, 255, 255 });
-    Texture texBlue = LoadTextureFromImage(imBlue);
-    UnloadImage(imBlue);
-    bear.width *= 0.5f;
+    // int alpha_loc = get_shader_location(color_shader, "alpha");
+    
+    // Array<Vector2> line_points = Array<Vector2>(3);
+    
+    // // for (int i = 0; i < line_points.count; i++){
+    // //     Vector2 new_point = {(float)i * 10, 200 * sqrtf((float)i)};
+    // //     array_add(&line_points, &new_point);
+    // // }
+    
+    // Vector2 first_point = {50, 50};
+    // Vector2 second_point = {250, 150};
+    // Vector2 third_point = {550, 150};
+    // line_points.add({50, 50});
+    // line_points.add({250, 150});
+    // line_points.add({550, 150});
+    
+    // Image imBlue = GenImageColor(800, 450, (Color){ 0, 0, 255, 255 });
+    // Texture texBlue = LoadTextureFromImage(imBlue);
+    // UnloadImage(imBlue);
+    // bear.width *= 0.5f;
     
     while(!WindowShouldClose()){
-        float dt = GetFrameTime();
+        dt = GetFrameTime();
+        
+        update_game();
+ /*       
         float changeTime = 0.5;
         float animTime = changeTime * 10;
         timer += dt;
         while (timer > animTime){
             timer -= animTime;
-            
-            Image screenshot = LoadImageFromScreen();
-            FILE* image_file;
-            image_file = fopen("abobaaauaua.txt", "w");
-            fclose(image_file);
         }
         BeginDrawing();
         ClearBackground(GRAY);
@@ -129,6 +132,7 @@ int main(){
         
         
         EndDrawing();
+        */
     }
     
     CloseWindow();
