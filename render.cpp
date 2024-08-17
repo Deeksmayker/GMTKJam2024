@@ -28,11 +28,11 @@ void draw_line(Vector2 start, Vector2 end, f32 thick, Color color){
     DrawLineEx(start, end, thick, color);
 }
 
-void draw_text(char *text, Vector2 pos, float size, Color color){
+void draw_text(const char *text, Vector2 pos, float size, Color color){
     DrawText(text, pos.x, pos.y, size, color);
 }
 
-void draw_text(char *text, float x, float y, float size, Color color){
+void draw_text(const char *text, float x, float y, float size, Color color){
     DrawText(text, x, y, size, color);
 }
 

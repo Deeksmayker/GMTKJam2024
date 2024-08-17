@@ -67,16 +67,31 @@ struct Context{
     Vector2 down_screen_size;
     Vector2 right_screen_size;
     Vector2 unit_screen_size;
+    
+    RenderTexture up_render_target;
+    RenderTexture down_render_target;
+    RenderTexture right_render_target;
 };
 
 Context context = {};
 
-float dt;
+f32 dt;
 
 #include "game.h"
 
 void init_game(){
     context = {};
+    
+    context.up_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
+    context.down_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
+    context.right_screen_size = {screen_width * 0.4f, (float)screen_height};
+    context.unit_screen_size = {screen_width / UNIT_SIZE, screen_height / UNIT_SIZE};
+    
+    context.up_render_target = LoadRenderTexture(context.up_screen_size.x, context.up_screen_size.y);
+    context.down_render_target = LoadRenderTexture(context.down_screen_size.x, context.down_screen_size.y);
+    context.right_render_target = LoadRenderTexture(context.right_screen_size.x, context.right_screen_size.y);
+    
+    //screen_size_changed = 1;
 }
 
 void update_game(){
@@ -93,11 +108,21 @@ void update_game(){
         }
     }
     
-    context.up_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
-    context.down_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
-    context.right_screen_size = {screen_width * 0.4f, (float)screen_height};
+    if (screen_size_changed){
+        context.up_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
+        context.down_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
+        context.right_screen_size = {screen_width * 0.4f, (float)screen_height};
+        context.unit_screen_size = {screen_width / UNIT_SIZE, screen_height / UNIT_SIZE};
+        
+        UnloadRenderTexture(context.up_render_target);
+        UnloadRenderTexture(context.down_render_target);
+        UnloadRenderTexture(context.up_render_target);
+        
+        context.up_render_target = LoadRenderTexture(context.up_screen_size.x, context.up_screen_size.y);
+        context.down_render_target = LoadRenderTexture(context.down_screen_size.x, context.down_screen_size.y);
+        context.right_render_target = LoadRenderTexture(context.right_screen_size.x, context.right_screen_size.y);
+    }
     
-    context.unit_screen_size = {screen_width / UNIT_SIZE, screen_height / UNIT_SIZE};
     draw_game();
 }
 
@@ -181,22 +206,44 @@ void draw_borders(){
 
 void draw_game(){
     BeginDrawing();
-    ClearBackground(GRAY);
     
-    if (context.fold_count <= 13){
-        context.render_screen = FULL;
+    Context *c = &context;
+    
+    if (c->fold_count <= 1){
+        c->render_screen = FULL;
+        ClearBackground(GRAY);
         draw_game_rect({0, 10}, {300, 30}, {0.5f, 0}, BROWN);
-        draw_paper(&context.right_paper);
+        draw_paper(&c->right_paper);
     } else{
-        draw_up_screen();
-        draw_down_screen();
-        draw_right_screen();
+        BeginTextureMode(c->up_render_target);{
+            ClearBackground(BLUE);
+            draw_up_screen();
+            draw_text("up", 60, 60, 40, RED);
+        } EndTextureMode();
+        BeginTextureMode(c->down_render_target);{
+            ClearBackground(YELLOW);
+            draw_down_screen();
+            draw_text("down", 60, 60, 40, RED);
+        } EndTextureMode();
+        BeginTextureMode(c->right_render_target);{
+            ClearBackground(PURPLE);
+            draw_right_screen();
+            draw_text("right", 60, 60, 40, RED);
+        } EndTextureMode();
+        
+        Texture *up_tex = &c->up_render_target.texture;
+        DrawTextureRec(*up_tex, {0, 0, (float)(up_tex->width), (float)-(up_tex->height)}, {0, 0}, WHITE);
+        Texture *down_tex = &c->down_render_target.texture;
+        DrawTextureRec(*down_tex, {0, 0, (float)(down_tex->width), (float)-(down_tex->height)}, {0, c->up_screen_size.y}, WHITE);
+        Texture *right_tex = &c->right_render_target.texture;
+        DrawTextureRec(*right_tex, {0, 0, (float)(right_tex->width), (float)-(right_tex->height)}, {c->up_screen_size.x, 0}, WHITE);
+        
         draw_borders();
     }
     
-    draw_text(context.fold_count, 50, 50, 40, RED);
+    draw_text(c->fold_count, 50, 50, 40, RED);
     
-    f64 paper_thick = 0.0001 * pow(2, context.fold_count);
+    f64 paper_thick = 0.0001 * pow(2, c->fold_count);
     
     draw_text(paper_thick, 50, 100, 40, BLUE);
     EndDrawing();
@@ -219,11 +266,11 @@ Vector2 world_to_screen(Vector2 pos){
         } break;
         case DOWN:{
             width_add = context.down_screen_size.x * 0.5f;    
-            height_add = screen_height;    
+            height_add = context.down_screen_size.y;    
         } break;
         case RIGHT:{
-            width_add = (screen_width - context.right_screen_size.x * 0.5f);    
-            height_add = screen_height;    
+            width_add = context.right_screen_size.x * 0.5f;    
+            height_add = context.right_screen_size.y;    
         } break;
         default:{
             width_add = screen_width * 0.5f;    

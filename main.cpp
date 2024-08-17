@@ -37,6 +37,8 @@ int screen_height = 900;
 
 #define UNIT_SIZE (screen_width / 150.0f)
 
+b32 screen_size_changed = 0;
+
 #include "game.cpp"
 int main(){
     InitWindow(screen_width, screen_height, "aboba");
@@ -87,6 +89,7 @@ int main(){
     // UnloadImage(imBlue);
     // bear.width *= 0.5f;
     
+    init_game();
     while(!WindowShouldClose()){
         dt = GetFrameTime();
         
@@ -133,6 +136,8 @@ int main(){
         
         EndDrawing();
         */
+        
+        screen_size_changed = 0;
     }
     
     CloseWindow();
