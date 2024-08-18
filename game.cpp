@@ -1,19 +1,104 @@
 #pragma once
 
+f32 dt;
+
+enum Screen{
+    FULL,
+    UP,  
+    DOWN,
+    RIGHT
+};
+
 struct Entity{
     b32 enabled = 1;
-
+    
     Vector2 pos;
+    Vector2 scale = {1, 1};
+    Vector2 pivot = {0.5f, 1.0f};
     float rotation;
     
     virtual void init(){}
     virtual void born(){}
     
     virtual void update(){}
+    virtual void draw(){}
     
     virtual void enable(){}
     virtual void disable(){}
     virtual void destroy(){}
+};
+
+
+struct Anim {
+    Texture *frames;
+    Vector2 pos;
+    Vector2 scale = {1, 1};
+    Vector2 pivot = {0.5f, 1.0f};
+    
+    Color tint = WHITE;
+    int frame_count;
+    const char *base_name;
+    f32 change_time = 0.03f;
+    
+    i32 frame = 0;
+    f32 anim_timer = 0;
+    
+    // Anim(const char *name, int count, Vector2 tex_scale, Vector2 world_pos){
+    //     base_name = name;
+    //     frame_count = count;
+    //     scale = tex_scale;
+    //     pos = world_pos;
+    // }
+    
+    // void init() override{
+    //     frames = (Texture*)malloc(frame_count * sizeof(Texture));
+        
+    //     if (frame_count == 1){
+    //         frames[0] = LoadTexture(TextFormat("%s%s%s", "resources/", base_name, ".png"));
+    //     } else{
+    //         for (int i = 0; i < frame_count; i++){
+    //             frames[i] = LoadTexture(TextFormat("%s%s%d%s", "resources/", base_name, i+1, ".png"));
+    //         }
+    //     }
+        
+    // }
+    
+    b32 backwards = 0;
+    // void update() override{
+    //     if (!enabled){
+    //         return;
+    //     }
+        
+    //     anim_timer += dt;
+        
+    //     while (anim_timer > change_time){
+    //         anim_timer -= change_time;
+    //         // if (backwards){
+    //         //     frame--;
+    //         //     if (frame <= 0){
+    //         //         backwards = 0;
+    //         //     }
+    //         // } else{
+    //         //     frame++;
+    //         //     if (frame >= frame_count - 1){
+    //         //         backwards = 1;
+    //         //     }
+    //         // }
+    //         frame++;
+    //         frame%=frame_count;
+    //     }
+    // }
+    
+    // void draw() override{
+    //     if (frame == frame_count - 1){
+    //         // BeginShaderMode(context.lerp_shader);{
+    //         //     set_shader_texture(context.lerp_shader, context.tex1_loc, frames[(frame+1)%frame_count]);
+    //         //     set_shader_value(context.lerp_shader, context.interp_loc, anim_timer / change_time);
+    //             //draw_game_texture(frames[0], pos, scale, pivot, tint);
+    //         //} EndShaderMode();
+    //     } 
+    //         draw_game_texture(frames[frame], pos, scale, pivot, tint);
+    // }
 };
 
 //scale 150 should be full screen;
@@ -38,6 +123,8 @@ struct Paper{
     
     f32 current_height;
     f32 target_height;
+    
+    i32 height_grow_mode = 0;
 };
 
 struct Cam{
@@ -45,14 +132,17 @@ struct Cam{
     float rotation;
 };
 
-enum Screen{
-    FULL,
-    UP,  
-    DOWN,
-    RIGHT
-};
-
 struct Context{
+    // Array<Entity*> *down_entities = new Array<Entity*>(100);
+    // Array<Entity*> *right_entities = new Array<Entity*>(100);
+    // Array<Entity*> *up_entities = new Array<Entity*>(100);
+    
+    //Array<Anim*> *grass_anims = new Array<Anim*>(20);
+    
+    Array<Anim*> *front_anims = new Array<Anim*>(100);
+    Array<Anim*> *mid_anims   = new Array<Anim*>(100);
+    Array<Anim*> *back_anims  = new Array<Anim*>(100);
+
     Paper up_paper = {};
     Paper down_paper = {};
     Paper right_paper = {};
@@ -71,56 +161,137 @@ struct Context{
     RenderTexture up_render_target;
     RenderTexture down_render_target;
     RenderTexture right_render_target;
+    
+    Shader lerp_shader;
+    int interp_loc;
+    int tex1_loc;
 };
 
 Context context = {};
 
-f32 dt;
-
 #include "game.h"
+
+Texture *grass_sprites;
+Texture *earth_sprites;
+Texture *tree_sprites;
 
 void init_game(){
     context = {};
     
-    context.up_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
-    context.down_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
-    context.right_screen_size = {screen_width * 0.4f, (float)screen_height};
-    context.unit_screen_size = {screen_width / UNIT_SIZE, screen_height / UNIT_SIZE};
+    Context *c = &context;
     
-    context.up_render_target = LoadRenderTexture(context.up_screen_size.x, context.up_screen_size.y);
-    context.down_render_target = LoadRenderTexture(context.down_screen_size.x, context.down_screen_size.y);
-    context.right_render_target = LoadRenderTexture(context.right_screen_size.x, context.right_screen_size.y);
+    c->lerp_shader = LoadShader(0, "sobel.fs");
+    c->interp_loc = get_shader_location(c->lerp_shader, "interp");
+    c->tex1_loc = get_shader_location(c->lerp_shader, "texture1");
+    
+    //Anim *grass_anim = (Anim *)malloc(sizeof(Anim));
+    // *grass_anim = Anim("Grass_", 60, {1, 1});
+    // grass_anim->init();
+    
+    load_anim(grass_sprites, 401, "Grass/Grass_");
+    load_anim(tree_sprites, 120, "Tree/Tree_");
+    load_anim(earth_sprites, 1, "Earth");
+    
+    // c->down_entities->add(new Anim("Grass/Grass_", 401, {1, 1}, {0, 1}));
+    // c->down_entities->add(new Anim("Grass/Grass_", 401, {1, 1}, {0, 10}));
+    
+    //c->right_entities->add(new Anim("Tree/Tree_", 120, {1, 1}, {-10, 10}));
+    //c->down_entities->add(new Anim("Grass/Grass_", 401, {1, 1}, {10, 1}));
+    
+    //c->right_entities->add(new Anim("Earth", 1, {0.5f, 0.5f}, {0, 20}));
+    
+    c->up_screen_size = {screen_width * 0.75f, screen_height * 0.5f};
+    c->down_screen_size = {screen_width * 0.75f, screen_height * 0.5f};
+    c->right_screen_size = {screen_width * 0.25f, (float)screen_height};
+    c->unit_screen_size = {screen_width / UNIT_SIZE, screen_height / UNIT_SIZE};
+    
+    Paper *up = &c->up_paper;
+    up->start_width = 40;
+    up->final_width = 5;
+    up->start_height = 5;
+    up->final_height = 10;
+    up->start_y_pos = 0;
+    up->final_y_pos = 0;
+    up->max_width_fold_count = 30;
+    up->max_height_fold_count = 30;
+    
+    Paper *down = &c->down_paper;
+    down->start_width = 40;
+    down->final_width = 5;
+    down->start_height = 5;
+    down->final_height = c->down_screen_size.y / UNIT_SIZE;
+    down->start_y_pos = 0;
+    down->final_y_pos = 10;
+    down->max_width_fold_count = 30;
+    down->max_height_fold_count = 13;
+    
+    Paper *right = &c->right_paper;
+    right->start_width = 0.5f;
+    right->final_width = 2;
+    right->final_height = (c->right_screen_size.y / UNIT_SIZE) - 40;
+    right->start_height = right->final_height / pow(2, 42);
+    right->start_y_pos = 20;
+    right->final_y_pos = 20;
+    right->max_width_fold_count = 40;
+    right->max_height_fold_count = 42;
+    
+    right->height_grow_mode = 1;
+    
+    c->up_render_target = LoadRenderTexture(c->up_screen_size.x, c->up_screen_size.y);
+    c->down_render_target = LoadRenderTexture(c->down_screen_size.x, c->down_screen_size.y);
+    c->right_render_target = LoadRenderTexture(c->right_screen_size.x, c->right_screen_size.y);
     
     //screen_size_changed = 1;
+    
+    for (int i = 0; i < c->down_entities->count; i++){
+        c->down_entities->get(i)->init();
+    }
+    for (int i = 0; i < c->up_entities->count; i++){
+        c->up_entities->get(i)->init();
+    }
+    for (int i = 0; i < c->right_entities->count; i++){
+        c->right_entities->get(i)->init();
+    }
 }
 
 void update_game(){
     if (IsKeyPressed(KEY_SPACE)){
         fold_paper();
     }
+    Context *c = &context;
     
     //Paper *p = &context.paper;
-    if (context.folding_countdown > 0){
-        context.folding_countdown -= dt;
+    if (c->folding_countdown > 0){
+        c->folding_countdown -= dt;
         
-        if (context.folding_countdown <= 0){
-            context.fold_count++;
+        if (c->folding_countdown <= 0){
+            c->fold_count++;
         }
     }
     
     if (screen_size_changed){
-        context.up_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
-        context.down_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
-        context.right_screen_size = {screen_width * 0.4f, (float)screen_height};
-        context.unit_screen_size = {screen_width / UNIT_SIZE, screen_height / UNIT_SIZE};
+        c->up_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
+        c->down_screen_size = {screen_width * 0.6f, screen_height * 0.5f};
+        c->right_screen_size = {screen_width * 0.4f, (float)screen_height};
+        c->unit_screen_size = {screen_width / UNIT_SIZE, screen_height / UNIT_SIZE};
         
-        UnloadRenderTexture(context.up_render_target);
-        UnloadRenderTexture(context.down_render_target);
-        UnloadRenderTexture(context.up_render_target);
+        UnloadRenderTexture(c->up_render_target);
+        UnloadRenderTexture(c->down_render_target);
+        UnloadRenderTexture(c->up_render_target);
         
-        context.up_render_target = LoadRenderTexture(context.up_screen_size.x, context.up_screen_size.y);
-        context.down_render_target = LoadRenderTexture(context.down_screen_size.x, context.down_screen_size.y);
-        context.right_render_target = LoadRenderTexture(context.right_screen_size.x, context.right_screen_size.y);
+        c->up_render_target = LoadRenderTexture(c->up_screen_size.x, c->up_screen_size.y);
+        c->down_render_target = LoadRenderTexture(c->down_screen_size.x, c->down_screen_size.y);
+        c->right_render_target = LoadRenderTexture(c->right_screen_size.x, c->right_screen_size.y);
+    }
+    
+    for (int i = 0; i < c->down_entities->count; i++){
+        c->down_entities->get(i)->update();
+    }
+    for (int i = 0; i < c->up_entities->count; i++){
+        c->up_entities->get(i)->update();
+    }
+    for (int i = 0; i < c->right_entities->count; i++){
+        c->right_entities->get(i)->update();
     }
     
     draw_game();
@@ -161,17 +332,62 @@ void update_paper(Paper *p){
     f32 width_t = clamp01((f32)context.fold_count / p->max_width_fold_count);
     p->target_width = lerp(p->start_width, p->final_width, sqrtf(width_t));
     
-    f32 height_t = clamp01((f32)context.fold_count / p->max_height_fold_count);
-    p->target_height = lerp(p->start_height, p->final_height, sqrtf(height_t));
-    
+    if (p->height_grow_mode == 1){
+        p->target_height = p->start_height * pow(2, context.fold_count);
+    } else{
+        f32 height_t = clamp01((f32)context.fold_count / p->max_height_fold_count);
+        p->target_height = lerp(p->start_height, p->final_height, sqrtf(height_t));
+    }
     p->target_y_pos = lerp(p->start_y_pos, p->final_y_pos, width_t);
     // Vector2 p_pos = {0, y_pos};
     // Vector2 p_scale = {paper_width, paper_height};
 }
 
+void update_anim(Anim *anim){
+    anim->anim_timer += dt;
+    
+    while (anim->anim_timer > anim->change_time){
+        anim->anim_timer -= anim->change_time;
+        // if (backwards){
+        //     frame--;
+        //     if (frame <= 0){
+        //         backwards = 0;
+        //     }
+        // } else{
+        //     frame++;
+        //     if (frame >= frame_count - 1){
+        //         backwards = 1;
+        //     }
+        // }
+        anim->frame++;
+        anim->frame%=anim->frame_count;
+    }
+}
+
+void draw_anim(Anim *anim, Texture *textures){
+    draw_game_texture(textures[anim->frame], anim->pos, anim->scale, anim->pivot, anim->tint);
+}
+
+void load_anim(Texture *frames, int count, const char *name){
+    frames = (Texture*)malloc(count * sizeof(Texture))
+    if (count == 1){
+        frames[0] = LoadTexture(TextFormat("%s%s%s", "resources/", name, ".png"));
+    } else{
+        for (int i = 0; i < count; i++){
+            frames[i] = LoadTexture(TextFormat("%s%s%d%s", "resources/", name, i+1, ".png"));
+        }
+    }
+
+}
+
 void draw_up_screen(){
     context.render_screen = UP;
     //Paper *p = &context.paper;
+    
+    for (int i = 0; i < context.up_entities->count; i++){
+        context.up_entities->get(i)->draw();
+    }
+
     
     draw_paper(&context.up_paper);
 }
@@ -179,15 +395,22 @@ void draw_up_screen(){
 void draw_down_screen(){
     context.render_screen = DOWN;
     //Paper *p = &context.paper;
+    context.down_entities->get(1)->draw();
     
-    draw_game_rect({0, 10}, {50, 30}, {0.5f, 0}, BROWN);
+    //draw_game_rect({0, 10}, {50, 30}, {0.5f, 0}, BROWN);
     draw_paper(&context.down_paper);
+    
+    context.down_entities->get(0)->draw();
 }
 
 void draw_right_screen(){
     context.render_screen = RIGHT;
     //Paper *p = &context.paper;
     
+    for (int i = 0; i < context.right_entities->count; i++){
+        context.right_entities->get(i)->draw();
+    }
+
     
     draw_paper(&context.right_paper);
 }
@@ -209,11 +432,11 @@ void draw_game(){
     
     Context *c = &context;
     
-    if (c->fold_count <= 1){
+    if (c->fold_count <= 13){
         c->render_screen = FULL;
         ClearBackground(GRAY);
         draw_game_rect({0, 10}, {300, 30}, {0.5f, 0}, BROWN);
-        draw_paper(&c->right_paper);
+        draw_paper(&c->down_paper);
     } else{
         BeginTextureMode(c->up_render_target);{
             ClearBackground(BLUE);
@@ -221,7 +444,7 @@ void draw_game(){
             draw_text("up", 60, 60, 40, RED);
         } EndTextureMode();
         BeginTextureMode(c->down_render_target);{
-            ClearBackground(YELLOW);
+            ClearBackground(SKYBLUE);
             draw_down_screen();
             draw_text("down", 60, 60, 40, RED);
         } EndTextureMode();
@@ -298,6 +521,15 @@ void draw_game_rect(Vector2 pos, Vector2 scale, Vector2 pivot, Color color){
 void draw_game_rect(Vector2 pos, Vector2 scale, Vector2 pivot, f32 rotation, Color color){
     Vector2 screen_pos = rect_screen_pos(pos, scale, pivot);
     draw_rect(screen_pos, multiply(scale, UNIT_SIZE), rotation, color);
+}
+
+void draw_game_texture(Texture tex, Vector2 pos, Vector2 scale, Vector2 pivot, Color color){
+    tex.width *= scale.x;
+    tex.height *= scale.y;
+    // scale.x *= tex.width  / UNIT_SIZE;
+    // scale.y *= tex.height / UNIT_SIZE;
+    Vector2 screen_pos = rect_screen_pos(pos, {(float)tex.width / UNIT_SIZE, (f32)tex.height / UNIT_SIZE}, pivot);
+    draw_texture(tex, screen_pos, color);
 }
 
 void draw_game_line(Vector2 start, Vector2 end, float thick, Color color){

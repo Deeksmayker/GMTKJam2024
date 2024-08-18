@@ -12,12 +12,12 @@ struct Array{
         data = (T*)malloc(max_amount * sizeof(T));
     }
     
-    T *get(int index){
-        return &data[index];
+    T get(int index){
+        return data[index];
     }
     
-    T get_value(int index){
-        return data[index];
+    T* get_ptr(int index){
+        return &data[index];
     }
     
     void add(T value){
