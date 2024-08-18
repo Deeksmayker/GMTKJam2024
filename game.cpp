@@ -12,6 +12,9 @@ enum Screen{
 struct Entity{
     b32 enabled = 1;
     
+    //lower - closer to camera
+    int draw_order = 1;
+    
     Vector2 pos;
     Vector2 scale = {1, 1};
     Vector2 pivot = {0.5f, 1.0f};
@@ -26,79 +29,6 @@ struct Entity{
     virtual void enable(){}
     virtual void disable(){}
     virtual void destroy(){}
-};
-
-
-struct Anim {
-    Texture *frames;
-    Vector2 pos;
-    Vector2 scale = {1, 1};
-    Vector2 pivot = {0.5f, 1.0f};
-    
-    Color tint = WHITE;
-    int frame_count;
-    const char *base_name;
-    f32 change_time = 0.03f;
-    
-    i32 frame = 0;
-    f32 anim_timer = 0;
-    
-    // Anim(const char *name, int count, Vector2 tex_scale, Vector2 world_pos){
-    //     base_name = name;
-    //     frame_count = count;
-    //     scale = tex_scale;
-    //     pos = world_pos;
-    // }
-    
-    // void init() override{
-    //     frames = (Texture*)malloc(frame_count * sizeof(Texture));
-        
-    //     if (frame_count == 1){
-    //         frames[0] = LoadTexture(TextFormat("%s%s%s", "resources/", base_name, ".png"));
-    //     } else{
-    //         for (int i = 0; i < frame_count; i++){
-    //             frames[i] = LoadTexture(TextFormat("%s%s%d%s", "resources/", base_name, i+1, ".png"));
-    //         }
-    //     }
-        
-    // }
-    
-    b32 backwards = 0;
-    // void update() override{
-    //     if (!enabled){
-    //         return;
-    //     }
-        
-    //     anim_timer += dt;
-        
-    //     while (anim_timer > change_time){
-    //         anim_timer -= change_time;
-    //         // if (backwards){
-    //         //     frame--;
-    //         //     if (frame <= 0){
-    //         //         backwards = 0;
-    //         //     }
-    //         // } else{
-    //         //     frame++;
-    //         //     if (frame >= frame_count - 1){
-    //         //         backwards = 1;
-    //         //     }
-    //         // }
-    //         frame++;
-    //         frame%=frame_count;
-    //     }
-    // }
-    
-    // void draw() override{
-    //     if (frame == frame_count - 1){
-    //         // BeginShaderMode(context.lerp_shader);{
-    //         //     set_shader_texture(context.lerp_shader, context.tex1_loc, frames[(frame+1)%frame_count]);
-    //         //     set_shader_value(context.lerp_shader, context.interp_loc, anim_timer / change_time);
-    //             //draw_game_texture(frames[0], pos, scale, pivot, tint);
-    //         //} EndShaderMode();
-    //     } 
-    //         draw_game_texture(frames[frame], pos, scale, pivot, tint);
-    // }
 };
 
 //scale 150 should be full screen;
@@ -133,15 +63,23 @@ struct Cam{
 };
 
 struct Context{
-    // Array<Entity*> *down_entities = new Array<Entity*>(100);
-    // Array<Entity*> *right_entities = new Array<Entity*>(100);
-    // Array<Entity*> *up_entities = new Array<Entity*>(100);
+    Array<Entity*> *down_entities = new Array<Entity*>(100);
+    Array<Entity*> *right_entities = new Array<Entity*>(100);
+    Array<Entity*> *up_entities = new Array<Entity*>(100);
+    
+    Array<Entity*> order_1_draw = Array<Entity*>(100);
+    Array<Entity*> order_2_draw = Array<Entity*>(100);
+    Array<Entity*> order_3_draw = Array<Entity*>(100);
+    Array<Entity*> order_4_draw = Array<Entity*>(100);
+    Array<Entity*> order_5_draw = Array<Entity*>(100);
+    
+    Array<Entity*> **orders_array;
     
     //Array<Anim*> *grass_anims = new Array<Anim*>(20);
     
-    Array<Anim*> *front_anims = new Array<Anim*>(100);
-    Array<Anim*> *mid_anims   = new Array<Anim*>(100);
-    Array<Anim*> *back_anims  = new Array<Anim*>(100);
+    // Array<Anim*> *front_anims = new Array<Anim*>(100);
+    // Array<Anim*> *mid_anims   = new Array<Anim*>(100);
+    // Array<Anim*> *back_anims  = new Array<Anim*>(100);
 
     Paper up_paper = {};
     Paper down_paper = {};
@@ -171,14 +109,91 @@ Context context = {};
 
 #include "game.h"
 
-Texture *grass_sprites;
-Texture *earth_sprites;
-Texture *tree_sprites;
+struct Anim : Entity {
+    Array<Texture> *frames;
+    
+    Color tint = WHITE;
+    //int frame_count;
+    //const char *base_name;
+    f32 change_time = 0.03f;
+    
+    i32 frame = 0;
+    f32 anim_timer = 0;
+    
+    Anim(Array<Texture> *textures, f32 speed_mult, Vector2 tex_scale, Vector2 world_pos, int order){
+        scale = tex_scale;
+        pos = world_pos;
+        frames = textures;
+        draw_order = order;
+        
+        change_time *= speed_mult;
+    }
+    
+    void init() override{
+        // frames = (Texture*)malloc(frame_count * sizeof(Texture));
+        
+        // if (frame_count == 1){
+        //     frames[0] = LoadTexture(TextFormat("%s%s%s", "resources/", base_name, ".png"));
+        // } else{
+        //     for (int i = 0; i < frame_count; i++){
+        //         frames[i] = LoadTexture(TextFormat("%s%s%d%s", "resources/", base_name, i+1, ".png"));
+        //     }
+        // }
+    }
+    
+    b32 backwards = 0;
+    void update() override{
+        if (!enabled){
+            return;
+        }
+        
+        anim_timer += dt;
+        
+        while (anim_timer > change_time){
+            anim_timer -= change_time;
+            // if (backwards){
+            //     frame--;
+            //     if (frame <= 0){
+            //         backwards = 0;
+            //     }
+            // } else{
+            //     frame++;
+            //     if (frame >= frame_count - 1){
+            //         backwards = 1;
+            //     }
+            // }
+            frame++;
+            frame%=frames->count;
+        }
+    }
+    
+    void draw() override{
+        if (frame == frames->count - 1){
+            // BeginShaderMode(context.lerp_shader);{
+            //     set_shader_texture(context.lerp_shader, context.tex1_loc, frames[(frame+1)%frame_count]);
+            //     set_shader_value(context.lerp_shader, context.interp_loc, anim_timer / change_time);
+                //draw_game_texture(frames[0], pos, scale, pivot, tint);
+            //} EndShaderMode();
+        } 
+            draw_game_texture(frames->get(frame), pos, scale, pivot, tint);
+    }
+};
+
+Array<Texture> grass_sprites = Array<Texture>(401);
+Array<Texture> earth_sprites = Array<Texture>(1);
+Array<Texture> tree_sprites  = Array<Texture>(120);
 
 void init_game(){
     context = {};
     
     Context *c = &context;
+    
+    c->orders_array = (Array<Entity*>**)malloc(5 * sizeof(Array<Entity*>*));
+    c->orders_array[0] = &c->order_1_draw;
+    c->orders_array[1] = &c->order_2_draw;
+    c->orders_array[2] = &c->order_3_draw;
+    c->orders_array[3] = &c->order_4_draw;
+    c->orders_array[4] = &c->order_5_draw;
     
     c->lerp_shader = LoadShader(0, "sobel.fs");
     c->interp_loc = get_shader_location(c->lerp_shader, "interp");
@@ -188,17 +203,16 @@ void init_game(){
     // *grass_anim = Anim("Grass_", 60, {1, 1});
     // grass_anim->init();
     
-    load_anim(grass_sprites, 401, "Grass/Grass_");
-    load_anim(tree_sprites, 120, "Tree/Tree_");
-    load_anim(earth_sprites, 1, "Earth");
+    load_anim(&grass_sprites, "Grass/Grass_");
+    load_anim(&tree_sprites, "Tree/Tree_");
+    load_anim(&earth_sprites, "Earth");
     
-    // c->down_entities->add(new Anim("Grass/Grass_", 401, {1, 1}, {0, 1}));
-    // c->down_entities->add(new Anim("Grass/Grass_", 401, {1, 1}, {0, 10}));
+    c->down_entities->add(new Anim(&grass_sprites, 1.0f, {1, 1}, {0, 1}, 1));
+    c->down_entities->add(new Anim(&grass_sprites, 1.2f, {1, 1}, {0, 10}, 5));
     
-    //c->right_entities->add(new Anim("Tree/Tree_", 120, {1, 1}, {-10, 10}));
-    //c->down_entities->add(new Anim("Grass/Grass_", 401, {1, 1}, {10, 1}));
+    c->right_entities->add(new Anim(&tree_sprites, 1.0f, {1, 1}, {-10, 10}, 1));
     
-    //c->right_entities->add(new Anim("Earth", 1, {0.5f, 0.5f}, {0, 20}));
+    c->right_entities->add(new Anim(&earth_sprites, 1.0f, {0.5f, 0.5f}, {0, 20}, 1));
     
     c->up_screen_size = {screen_width * 0.75f, screen_height * 0.5f};
     c->down_screen_size = {screen_width * 0.75f, screen_height * 0.5f};
@@ -343,38 +357,38 @@ void update_paper(Paper *p){
     // Vector2 p_scale = {paper_width, paper_height};
 }
 
-void update_anim(Anim *anim){
-    anim->anim_timer += dt;
+// void update_anim(Anim *anim){
+//     anim->anim_timer += dt;
     
-    while (anim->anim_timer > anim->change_time){
-        anim->anim_timer -= anim->change_time;
-        // if (backwards){
-        //     frame--;
-        //     if (frame <= 0){
-        //         backwards = 0;
-        //     }
-        // } else{
-        //     frame++;
-        //     if (frame >= frame_count - 1){
-        //         backwards = 1;
-        //     }
-        // }
-        anim->frame++;
-        anim->frame%=anim->frame_count;
-    }
-}
+//     while (anim->anim_timer > anim->change_time){
+//         anim->anim_timer -= anim->change_time;
+//         // if (backwards){
+//         //     frame--;
+//         //     if (frame <= 0){
+//         //         backwards = 0;
+//         //     }
+//         // } else{
+//         //     frame++;
+//         //     if (frame >= frame_count - 1){
+//         //         backwards = 1;
+//         //     }
+//         // }
+//         anim->frame++;
+//         anim->frame%=anim->frame_count;
+//     }
+// }
 
-void draw_anim(Anim *anim, Texture *textures){
-    draw_game_texture(textures[anim->frame], anim->pos, anim->scale, anim->pivot, anim->tint);
-}
+// void draw_anim(Anim *anim, Texture *textures){
+//     draw_game_texture(textures[anim->frame], anim->pos, anim->scale, anim->pivot, anim->tint);
+// }
 
-void load_anim(Texture *frames, int count, const char *name){
-    frames = (Texture*)malloc(count * sizeof(Texture))
-    if (count == 1){
-        frames[0] = LoadTexture(TextFormat("%s%s%s", "resources/", name, ".png"));
+void load_anim(Array<Texture> *frames, const char *name){
+    //frames = (Texture*)malloc(count * sizeof(Texture));
+    if (frames->max_count == 1){
+        frames->add(LoadTexture(TextFormat("%s%s%s", "resources/", name, ".png")));
     } else{
-        for (int i = 0; i < count; i++){
-            frames[i] = LoadTexture(TextFormat("%s%s%d%s", "resources/", name, i+1, ".png"));
+        for (int i = 0; i < frames->max_count; i++){
+            frames->add(LoadTexture(TextFormat("%s%s%d%s", "resources/", name, i+1, ".png")));
         }
     }
 
@@ -384,35 +398,56 @@ void draw_up_screen(){
     context.render_screen = UP;
     //Paper *p = &context.paper;
     
-    for (int i = 0; i < context.up_entities->count; i++){
-        context.up_entities->get(i)->draw();
-    }
-
+    // for (int i = 0; i < context.up_entities->count; i++){
+    //     context.up_entities->get(i)->draw();
+    // }
+    fill_draw_orders(context.up_entities);
     
+    draw_entities(5);
+    draw_entities(4);
+    draw_entities(3);
+
     draw_paper(&context.up_paper);
+
+    draw_entities(2);
+    draw_entities(1);
 }
 
 void draw_down_screen(){
     context.render_screen = DOWN;
     //Paper *p = &context.paper;
-    context.down_entities->get(1)->draw();
+    //context.down_entities->get(1)->draw();
     
     //draw_game_rect({0, 10}, {50, 30}, {0.5f, 0}, BROWN);
+    
+    fill_draw_orders(context.down_entities);
+    draw_entities(5);
+    draw_entities(4);
+    draw_entities(3);
+    
     draw_paper(&context.down_paper);
     
-    context.down_entities->get(0)->draw();
+    draw_entities(2);
+    draw_entities(1);
+    //context.down_entities->get(0)->draw();
 }
 
 void draw_right_screen(){
     context.render_screen = RIGHT;
     //Paper *p = &context.paper;
     
-    for (int i = 0; i < context.right_entities->count; i++){
-        context.right_entities->get(i)->draw();
-    }
-
+    // for (int i = 0; i < context.right_entities->count; i++){
+    //     context.right_entities->get(i)->draw();
+    // }
+    fill_draw_orders(context.right_entities);
+    draw_entities(5);
+    draw_entities(4);
+    draw_entities(3);
     
     draw_paper(&context.right_paper);
+    
+    draw_entities(2);
+    draw_entities(1);
 }
 
 void draw_borders(){
@@ -427,16 +462,46 @@ void draw_borders(){
     draw_game_rect({(context.down_screen_size.x / UNIT_SIZE) - context.unit_screen_size.x * 0.5f, 0}, {width, 100}, {0, 1}, PINK);
 }
 
+void fill_draw_orders(Array<Entity*> *entities){
+    context.order_1_draw.count = 0;
+    context.order_2_draw.count = 0;
+    context.order_3_draw.count = 0;
+    context.order_4_draw.count = 0;
+    context.order_5_draw.count = 0;
+
+    for (int i = 0; i < entities->count; i++){
+        context.orders_array[(entities->get(i)->draw_order)-1]->add(entities->get(i));
+    }
+    // for (int i = 0; i < context.up_entities->count; i++){
+    //     context.orders_array[context.up_entities->get(i)->draw_order+1].add(context.up_entities->get(i));
+    // }
+    // for (int i = 0; i < context.right_entities->count; i++){
+    //     context.orders_array[context.right_entities->get(i)->draw_order+1].add(context.right_entities->get(i));
+    // }
+}
+
+void draw_entities(int order){
+    for (int i = 0; i < context.orders_array[order-1]->count; i++){
+        context.orders_array[order-1]->get(i)->draw();
+    }
+}
+
 void draw_game(){
     BeginDrawing();
-    
+    //fill_draw_orders();
     Context *c = &context;
     
     if (c->fold_count <= 13){
         c->render_screen = FULL;
         ClearBackground(GRAY);
+        fill_draw_orders(c->down_entities);
+        draw_entities(5);
+        draw_entities(4);
+        draw_entities(3);
         draw_game_rect({0, 10}, {300, 30}, {0.5f, 0}, BROWN);
         draw_paper(&c->down_paper);
+        draw_entities(2);
+        draw_entities(1);
     } else{
         BeginTextureMode(c->up_render_target);{
             ClearBackground(BLUE);
